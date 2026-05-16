@@ -8,7 +8,7 @@ const config: Config = {
   moduleNameMapper: {
     '^@devflow/shared$': '<rootDir>/../../packages/shared/src/index.ts',
   },
-  setupFilesAfterFramework: [],
+  setupFiles: ['<rootDir>/jest.setup.ts'],
   clearMocks: true,
   collectCoverageFrom: [
     'src/**/*.ts',

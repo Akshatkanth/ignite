@@ -1,7 +1,7 @@
 import { prisma } from '../../config/database';
 import { logger } from '../../config/logger';
 import { NotFoundError, ForbiddenError, AppError } from '../../middleware/errorHandler';
-import { enqueueDeployment } from '../../queue/deploymentQueue';
+import { enqueueDeployment, getDeploymentQueue } from '../../queue/deploymentQueue';
 import {
   deploymentsTotal,
   activeDeployments,
@@ -36,6 +36,30 @@ async function assertDeploymentAccess(deploymentId: string, userId: string): Pro
     error: deployment.error,
     createdAt: deployment.createdAt,
   };
+}
+
+async function isDeploymentCancelled(deploymentId: string): Promise<boolean> {
+  const deployment = await prisma.deployment.findUnique({
+    where: { id: deploymentId },
+    select: { status: true },
+  });
+
+  return deployment?.status === DeploymentStatus.CANCELLED;
+}
+
+async function removeQueuedDeploymentJob(deploymentId: string): Promise<void> {
+  const queue = getDeploymentQueue();
+  const job = await queue.getJob(deploymentId);
+
+  if (!job) {
+    return;
+  }
+
+  const state = await job.getState();
+  if (state === 'waiting' || state === 'delayed') {
+    await job.remove();
+    logger.info({ deploymentId, jobId: job.id, state }, 'Queued deployment job removed');
+  }
 }
 
 // ─── Deployments Service ──────────────────────────────────────────────────────
@@ -170,6 +194,12 @@ export async function cancelDeployment(deploymentId: string, userId: string): Pr
   }
 
   // Verify ownership or at least membership (any member can cancel)
+  try {
+    await removeQueuedDeploymentJob(deploymentId);
+  } catch (err) {
+    logger.warn({ deploymentId, err }, 'Failed to remove queued deployment job during cancel');
+  }
+
   const updated = await prisma.deployment.update({
     where: { id: deploymentId },
     data: {

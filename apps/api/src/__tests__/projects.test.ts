@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../src/app';
 import { prisma } from '../../src/config/database';
+import { getDeploymentQueue } from '../../src/queue/deploymentQueue';
 
 jest.mock('../../src/config/redis', () => ({
   redis: { connect: jest.fn(), ping: jest.fn(), quit: jest.fn(), on: jest.fn() },
@@ -22,11 +23,13 @@ jest.mock('../../src/websocket/io', () => ({
 }));
 
 const app = createApp();
+const mockGetDeploymentQueue = jest.mocked(getDeploymentQueue);
 
 const suffix = Date.now();
 const testUser = { email: `proj-user-${suffix}@devflow.test`, password: 'TestPassword123', name: 'Proj User' };
 let accessToken: string;
 let projectId: string;
+let deploymentId: string;
 
 beforeAll(async () => {
   const res = await request(app).post('/api/auth/register').send(testUser);
@@ -132,5 +135,37 @@ describe('POST /api/projects/:projectId/deployments', () => {
     expect(res.status).toBe(202);
     expect(res.body.data.deployment.status).toBe('QUEUED');
     expect(res.body.data.deployment.projectId).toBe(projectId);
+    deploymentId = res.body.data.deployment.id;
+  });
+});
+
+describe('POST /api/deployments/:id/cancel', () => {
+  it('should cancel a queued deployment and remove it from the queue', async () => {
+    const remove = jest.fn().mockResolvedValue(undefined);
+    const getState = jest.fn().mockResolvedValue('waiting');
+
+    mockGetDeploymentQueue.mockReturnValue({
+      getJob: jest.fn().mockResolvedValue({
+        id: deploymentId,
+        getState,
+        remove,
+      }),
+    } as never);
+
+    const res = await request(app)
+      .post(`/api/deployments/${deploymentId}/cancel`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.deployment.status).toBe('CANCELLED');
+    expect(remove).toHaveBeenCalledTimes(1);
+
+    const getRes = await request(app)
+      .get(`/api/deployments/${deploymentId}`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(getRes.status).toBe(200);
+    expect(getRes.body.data.deployment.status).toBe('CANCELLED');
   });
 });

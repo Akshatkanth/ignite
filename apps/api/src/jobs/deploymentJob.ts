@@ -62,6 +62,15 @@ async function emitLog(
   }
 }
 
+async function isDeploymentCancelled(deploymentId: string): Promise<boolean> {
+  const deployment = await prisma.deployment.findUnique({
+    where: { id: deploymentId },
+    select: { status: true },
+  });
+
+  return deployment?.status === DeploymentStatus.CANCELLED;
+}
+
 /** Delay helper that simulates real pipeline latency */
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -228,17 +237,42 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
   logger.info({ deploymentId }, 'Starting deployment pipeline');
 
   try {
+    if (await isDeploymentCancelled(deploymentId)) {
+      logger.info({ deploymentId }, 'Deployment was cancelled before pipeline started');
+      return;
+    }
+
     // Step 1: Clone
     const commitSha = await stepClone(ctx);
+
+    if (await isDeploymentCancelled(deploymentId)) {
+      logger.info({ deploymentId }, 'Deployment was cancelled after clone step');
+      return;
+    }
 
     // Step 2: Validate
     const framework = await stepValidate(ctx);
 
+    if (await isDeploymentCancelled(deploymentId)) {
+      logger.info({ deploymentId }, 'Deployment was cancelled after validate step');
+      return;
+    }
+
     // Step 3: Build
     await stepBuild(ctx, framework);
 
+    if (await isDeploymentCancelled(deploymentId)) {
+      logger.info({ deploymentId }, 'Deployment was cancelled after build step');
+      return;
+    }
+
     // Step 4: Health Check
     await stepHealthCheck(ctx);
+
+    if (await isDeploymentCancelled(deploymentId)) {
+      logger.info({ deploymentId }, 'Deployment was cancelled after health check step');
+      return;
+    }
 
     // Finalize: Calculate duration and mark complete
     const deployment = await prisma.deployment.findUnique({
@@ -269,6 +303,11 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
     await updateStatus(deploymentId, DeploymentStatus.HEALTHY);
     logger.info({ deploymentId, duration }, 'Deployment pipeline completed');
   } catch (err) {
+    if (await isDeploymentCancelled(deploymentId)) {
+      logger.info({ deploymentId }, 'Deployment pipeline stopped because it was cancelled');
+      return;
+    }
+
     const error = err instanceof Error ? err.message : 'Unknown error';
 
     logger.error({ deploymentId, err }, 'Deployment pipeline failed');
