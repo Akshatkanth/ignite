@@ -59,6 +59,7 @@ async function removeQueuedDeploymentJob(deploymentId: string): Promise<void> {
   if (state === 'waiting' || state === 'delayed') {
     await job.remove();
     logger.info({ deploymentId, jobId: job.id, state }, 'Queued deployment job removed');
+    activeDeployments.dec();
   }
 }
 
@@ -208,7 +209,6 @@ export async function cancelDeployment(deploymentId: string, userId: string): Pr
     },
   });
 
-  activeDeployments.dec();
   logger.info({ deploymentId, userId }, 'Deployment cancelled');
 
   return { ...deployment, status: updated.status as DeploymentStatus };

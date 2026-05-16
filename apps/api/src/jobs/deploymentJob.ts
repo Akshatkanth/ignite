@@ -2,6 +2,7 @@ import { prisma } from '../config/database';
 import { logger } from '../config/logger';
 import { getIoServer } from '../websocket/io';
 import type { DeploymentJobData } from '../queue/deploymentQueue';
+import { deploymentDuration, deploymentsTotal } from '../metrics/registry';
 import { DeploymentStatus, LogLevel } from '@devflow/shared';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -69,6 +70,23 @@ async function isDeploymentCancelled(deploymentId: string): Promise<boolean> {
   });
 
   return deployment?.status === DeploymentStatus.CANCELLED;
+}
+
+async function getDeploymentStartTime(deploymentId: string): Promise<Date | null> {
+  const deployment = await prisma.deployment.findUnique({
+    where: { id: deploymentId },
+    select: { startedAt: true },
+  });
+
+  return deployment?.startedAt ?? null;
+}
+
+function recordDeploymentOutcome(status: 'healthy' | 'failed', framework: string, duration: number | null): void {
+  deploymentsTotal.inc({ status, framework });
+
+  if (duration !== null) {
+    deploymentDuration.observe({ status, framework }, duration);
+  }
 }
 
 /** Delay helper that simulates real pipeline latency */
@@ -275,13 +293,9 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
     }
 
     // Finalize: Calculate duration and mark complete
-    const deployment = await prisma.deployment.findUnique({
-      where: { id: deploymentId },
-      select: { startedAt: true },
-    });
-
-    const duration = deployment?.startedAt
-      ? Math.round((Date.now() - deployment.startedAt.getTime()) / 1000)
+    const startedAt = await getDeploymentStartTime(deploymentId);
+    const duration = startedAt
+      ? Math.round((Date.now() - startedAt.getTime()) / 1000)
       : null;
 
     await prisma.deployment.update({
@@ -293,6 +307,8 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
         duration,
       },
     });
+
+    recordDeploymentOutcome('healthy', 'unknown', duration);
 
     await emitLog(
       deploymentId,
@@ -326,6 +342,10 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
         completedAt: new Date(),
       },
     });
+
+    const startedAt = await getDeploymentStartTime(deploymentId);
+    const duration = startedAt ? Math.round((Date.now() - startedAt.getTime()) / 1000) : null;
+    recordDeploymentOutcome('failed', 'unknown', duration);
 
     await updateStatus(deploymentId, DeploymentStatus.FAILED);
 

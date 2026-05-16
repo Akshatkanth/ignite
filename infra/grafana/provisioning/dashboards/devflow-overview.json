@@ -15,7 +15,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
       "targets": [
         {
-          "expr": "sum(devflow_deployments_total)",
+          "expr": "sum(devflow_deployments_total{status='queued'})",
           "legendFormat": "Total"
         }
       ],
@@ -54,7 +54,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
       "targets": [
         {
-          "expr": "sum(devflow_deployments_total{status='healthy'}) / sum(devflow_deployments_total) * 100",
+          "expr": "sum(devflow_deployments_total{status='healthy'}) / clamp_min(sum(devflow_deployments_total{status=~'healthy|failed'}), 1) * 100",
           "legendFormat": "Success %"
         }
       ],

@@ -139,6 +139,29 @@ describe('POST /api/projects/:projectId/deployments', () => {
   });
 });
 
+describe('GET /api/deployments/:id/logs', () => {
+  it('should return paginated logs for a deployment', async () => {
+    await prisma.deploymentLog.create({
+      data: {
+        deploymentId,
+        message: 'Bootstrapping deployment log test',
+        level: 'info',
+      },
+    });
+
+    const res = await request(app)
+      .get(`/api/deployments/${deploymentId}/logs`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .query({ page: 1, limit: 10 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data.data)).toBe(true);
+    expect(res.body.data.data.length).toBeGreaterThan(0);
+    expect(res.body.data.total).toBeGreaterThan(0);
+  });
+});
+
 describe('POST /api/deployments/:id/cancel', () => {
   it('should cancel a queued deployment and remove it from the queue', async () => {
     const remove = jest.fn().mockResolvedValue(undefined);
@@ -167,5 +190,33 @@ describe('POST /api/deployments/:id/cancel', () => {
 
     expect(getRes.status).toBe(200);
     expect(getRes.body.data.deployment.status).toBe('CANCELLED');
+  });
+
+  it('should cancel an active deployment without removing the job from the queue', async () => {
+    const triggerRes = await request(app)
+      .post(`/api/projects/${projectId}/deployments`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({ commitMessage: 'Active cancel test' });
+
+    const activeDeploymentId = triggerRes.body.data.deployment.id;
+    const remove = jest.fn().mockResolvedValue(undefined);
+    const getState = jest.fn().mockResolvedValue('active');
+
+    mockGetDeploymentQueue.mockReturnValue({
+      getJob: jest.fn().mockResolvedValue({
+        id: activeDeploymentId,
+        getState,
+        remove,
+      }),
+    } as never);
+
+    const res = await request(app)
+      .post(`/api/deployments/${activeDeploymentId}/cancel`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.deployment.status).toBe('CANCELLED');
+    expect(remove).not.toHaveBeenCalled();
   });
 });

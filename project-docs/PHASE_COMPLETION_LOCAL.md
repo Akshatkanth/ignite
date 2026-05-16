@@ -13,19 +13,32 @@ Most Phase 2-5 features already exist in code. The fastest strategy is to close 
 - [ ] Confirm local infra starts cleanly (`postgres`, `redis`).
 
 ### Step 2 - Phase 2 Closure: Deployment Pipeline
-- [ ] Verify queue + worker lifecycle is robust for local restarts.
-- [ ] Ensure deployment cancel behavior is reflected consistently in UI and API.
-- [ ] Add missing edge-case handling for duplicate/parallel deployment triggers.
+- [x] Verify queue + worker lifecycle is robust for local restarts.
+- [x] Ensure deployment cancel behavior is reflected consistently in UI and API.
+- [x] Add missing edge-case handling for duplicate/parallel deployment triggers.
+
+Validated locally:
+- Canceling a queued deployment now removes the BullMQ job from the queue.
+- Canceling an active deployment keeps the queue intact and lets the worker exit cleanly.
+- Active deployment accounting is now finalized in the worker, so metrics do not leak on completion or failure.
 
 ### Step 3 - Phase 3 Closure: Monitoring & Observability
-- [ ] Validate `/metrics` exposure and Prometheus scrape alignment.
-- [ ] Ensure Grafana provisioning loads dashboard without manual fixes.
-- [ ] Ensure structured logging fields are consistent across API + worker logs.
+- [x] Validate `/metrics` exposure and Prometheus scrape alignment.
+- [x] Ensure Grafana provisioning loads dashboard without manual fixes.
+- [x] Ensure structured logging fields are consistent across API + worker logs.
+
+Validated locally:
+- Deployment metrics now record terminal outcomes and duration.
+- WebSocket connection counts are tracked in Prometheus.
+- Grafana dashboard queries now use the correct metric subsets and no longer double-count queued deployments.
 
 ### Step 4 - Phase 4 Closure: Security & CI Polish
-- [ ] Expand deployment endpoint integration tests (trigger/get/logs/cancel).
+- [x] Expand deployment endpoint integration tests (trigger/get/logs/cancel).
 - [ ] Verify validation + rate limiter responses are consistent error shape.
 - [ ] Keep CI green for lint/build/test and docker build path.
+
+Validated locally:
+- Deployment route integration coverage now includes trigger, get, logs, and cancel paths.
 
 ### Step 5 - Phase 5 Closure: Frontend UX Consistency
 - [ ] Tighten error states for dashboard/project/deployment pages.
@@ -34,7 +47,7 @@ Most Phase 2-5 features already exist in code. The fastest strategy is to close 
 
 ## Execution Order (Fastest)
 1. Stabilize base (Step 1).
-2. Finish API hardening (Steps 2 and 4 together).
+2. Phase 2 is complete; move to Phase 3 observability closure next.
 3. Finish observability checks (Step 3).
 4. Finish frontend polish (Step 5).
 5. Then run full testing pass.

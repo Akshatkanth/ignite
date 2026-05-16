@@ -4,6 +4,7 @@ import { logger } from '../config/logger';
 import { runDeploymentJob } from '../jobs/deploymentJob';
 import { DEPLOYMENT_QUEUE_NAME } from './deploymentQueue';
 import type { DeploymentJobData } from './deploymentQueue';
+import { activeDeployments } from '../metrics/registry';
 
 let worker: Worker<DeploymentJobData> | null = null;
 
@@ -30,6 +31,7 @@ export function startDeploymentWorker(): Worker<DeploymentJobData> {
   );
 
   worker.on('completed', (job) => {
+    activeDeployments.dec();
     logger.info(
       { jobId: job.id, deploymentId: job.data.deploymentId },
       'Deployment job completed'
@@ -37,6 +39,7 @@ export function startDeploymentWorker(): Worker<DeploymentJobData> {
   });
 
   worker.on('failed', (job, err) => {
+    activeDeployments.dec();
     logger.error(
       { jobId: job?.id, deploymentId: job?.data.deploymentId, err },
       'Deployment job failed'

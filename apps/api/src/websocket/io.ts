@@ -2,6 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server as IoServer } from 'socket.io';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
+import { websocketConnections } from '../metrics/registry';
 
 let io: IoServer | null = null;
 
@@ -15,6 +16,7 @@ export function initIoServer(httpServer: HttpServer): IoServer {
   });
 
   io.on('connection', (socket) => {
+    websocketConnections.inc();
     logger.info({ socketId: socket.id }, 'WebSocket client connected');
 
     // Client joins a deployment-specific room to receive its logs
@@ -35,6 +37,7 @@ export function initIoServer(httpServer: HttpServer): IoServer {
     });
 
     socket.on('disconnect', (reason) => {
+      websocketConnections.dec();
       logger.info({ socketId: socket.id, reason }, 'WebSocket client disconnected');
     });
 
