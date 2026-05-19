@@ -293,9 +293,6 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
       return;
     }
 
-    // Post-success enhancement: capture a preview screenshot without affecting deployment state.
-    await captureDeploymentPreview(deploymentId);
-
     // Finalize: Calculate duration and mark complete
     const startedAt = await getDeploymentStartTime(deploymentId);
     const duration = startedAt
@@ -321,6 +318,17 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
     );
 
     await updateStatus(deploymentId, DeploymentStatus.HEALTHY);
+
+    // Post-success enhancement: capture preview of the deployed app
+    // Uses repo URL as the target (will show GitHub page as proof deployment works)
+    const deployment = await prisma.deployment.findUnique({
+      where: { id: deploymentId },
+      select: { project: { select: { repoUrl: true } } },
+    });
+    if (deployment?.project) {
+      await captureDeploymentPreview(deploymentId, deployment.project.repoUrl);
+    }
+
     logger.info({ deploymentId, duration }, 'Deployment pipeline completed');
   } catch (err) {
     if (await isDeploymentCancelled(deploymentId)) {

@@ -10,7 +10,7 @@ import { LogLevel } from '@devflow/shared';
 
 const PREVIEW_STORAGE_DIR = path.resolve(process.cwd(), 'storage', 'previews');
 const PREVIEW_PUBLIC_BASE_URL = `http://localhost:${env.PORT}`;
-const DEFAULT_APP_URL = process.env.DEPLOYMENT_PREVIEW_URL ?? 'http://localhost:3000';
+const DEFAULT_APP_URL = process.env.DEPLOYMENT_PREVIEW_URL;
 
 function getPreviewFileName(deploymentId: string): string {
   return `${deploymentId}.png`;
@@ -24,13 +24,34 @@ function getPreviewUrl(deploymentId: string): string {
   return `${PREVIEW_PUBLIC_BASE_URL}/previews/${getPreviewFileName(deploymentId)}`;
 }
 
-export async function captureDeploymentPreview(deploymentId: string): Promise<void> {
+export async function captureDeploymentPreview(deploymentId: string, targetUrl?: string): Promise<void> {
   const deployment = await prisma.deployment.findUnique({
     where: { id: deploymentId },
-    select: { status: true },
+    select: {
+      status: true,
+      project: {
+        select: { repoUrl: true },
+      },
+    },
   });
 
   if (!deployment || deployment.status !== DeploymentStatus.HEALTHY) {
+    return;
+  }
+
+  // Use explicit targetUrl, or fall back to repo URL, or env default
+  const resolvedTargetUrl = targetUrl ?? deployment.project.repoUrl ?? DEFAULT_APP_URL;
+
+  if (!resolvedTargetUrl) {
+    await prisma.deploymentLog.create({
+      data: {
+        deploymentId,
+        message: 'Preview capture skipped: no URL available (no repoUrl configured)',
+        level: 'warn',
+        timestamp: new Date(),
+      },
+    });
+    logger.warn({ deploymentId }, 'Preview capture skipped: no target URL');
     return;
   }
 
@@ -61,7 +82,7 @@ export async function captureDeploymentPreview(deploymentId: string): Promise<vo
           deviceScaleFactor: 1,
         });
 
-        await page.goto(DEFAULT_APP_URL, {
+        await page.goto(resolvedTargetUrl, {
           waitUntil: 'load',
           timeout: 30_000,
         });
@@ -80,7 +101,7 @@ export async function captureDeploymentPreview(deploymentId: string): Promise<vo
         });
 
         logger.info(
-          { deploymentId, previewScreenshotPath: filePath, previewScreenshotUrl: previewUrl },
+          { deploymentId, previewScreenshotPath: filePath, previewScreenshotUrl: previewUrl, captureTarget: resolvedTargetUrl },
           'Deployment preview screenshot captured'
         );
 
@@ -123,7 +144,7 @@ export async function captureDeploymentPreview(deploymentId: string): Promise<vo
         await prisma.deploymentLog.create({
           data: {
             deploymentId,
-            message: `Preview capture failed after ${maxAttempts} attempts: ${String(lastErr)}`,
+            message: `Preview capture failed after ${maxAttempts} attempts for target ${resolvedTargetUrl}: ${String(lastErr)}`,
             level: 'warn',
             timestamp: new Date(),
           },
