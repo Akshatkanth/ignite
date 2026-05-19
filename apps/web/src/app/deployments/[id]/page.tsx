@@ -134,6 +134,15 @@ export default function DeploymentPage({ params }: { params: Promise<{ id: strin
       }
     });
 
+    // Listen for preview capture events and update deployment preview fields
+    socket.on('deployment:preview', (event: { previewScreenshotUrl?: string; previewScreenshotCapturedAt?: string }) => {
+      setDeployment((prev) => prev ? {
+        ...prev,
+        previewScreenshotUrl: event.previewScreenshotUrl ?? prev.previewScreenshotUrl,
+        previewScreenshotCapturedAt: event.previewScreenshotCapturedAt ?? prev.previewScreenshotCapturedAt,
+      } : prev);
+    });
+
     return () => {
       socket.emit('deployment:unsubscribe', id);
       socket.disconnect();
