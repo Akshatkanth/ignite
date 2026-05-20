@@ -8,7 +8,27 @@ import { logger } from '../config/logger';
 import { getIoServer } from '../websocket/io';
 import { LogLevel } from '@devflow/shared';
 
-const PREVIEW_STORAGE_DIR = path.resolve(process.cwd(), 'storage', 'previews');
+// Resolve a stable previews storage directory at the repository root by
+// walking up from this file's directory until we find a package.json.
+function findRepoRoot(startDir: string): string {
+  let dir = startDir;
+  for (let i = 0; i < 8; i++) {
+    try {
+      const pkg = path.join(dir, 'package.json');
+      // Use synchronous check for simplicity during startup
+      if (require('fs').existsSync(pkg)) return dir;
+    } catch {}
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fallback to process.cwd()
+  return process.cwd();
+}
+
+const repoRoot = findRepoRoot(__dirname);
+const PREVIEW_STORAGE_DIR = path.resolve(repoRoot, 'storage', 'previews');
+const API_PREVIEW_STORAGE_DIR = path.resolve(repoRoot, 'apps', 'api', 'storage', 'previews');
 const PREVIEW_PUBLIC_BASE_URL = `http://localhost:${env.PORT}`;
 const DEFAULT_APP_URL = process.env.DEPLOYMENT_PREVIEW_URL;
 
@@ -89,7 +109,19 @@ export async function captureDeploymentPreview(deploymentId: string, targetUrl?:
 
         await page.waitForTimeout(1000);
 
-        await page.screenshot({ path: filePath, fullPage: true, type: 'png' });
+        const buffer = await page.screenshot({ fullPage: true, type: 'png' });
+
+        // Write to repo-level preview storage
+        await fs.writeFile(filePath, buffer);
+        // Also write to the API's preview storage directory so the running
+        // express server can serve the file regardless of working dir.
+        try {
+          await fs.mkdir(API_PREVIEW_STORAGE_DIR, { recursive: true });
+          const apiFilePath = path.join(API_PREVIEW_STORAGE_DIR, getPreviewFileName(deploymentId));
+          await fs.writeFile(apiFilePath, buffer);
+        } catch (err) {
+          logger.warn({ deploymentId, err }, 'Failed to write preview to API storage directory');
+        }
 
         await prisma.deployment.update({
           where: { id: deploymentId },

@@ -20,7 +20,25 @@ import deploymentsRoutes from './modules/deployments/deployments.routes';
 
 export function createApp() {
   const app = express();
-  const previewStorageDir = path.resolve(process.cwd(), 'storage', 'previews');
+  // Resolve previews directory at repository root so it matches where
+  // the capture worker writes images (repoRoot/storage/previews).
+  function findRepoRoot(startDir: string): string {
+    let dir = startDir;
+    for (let i = 0; i < 8; i++) {
+      try {
+        const pkg = path.join(dir, 'package.json');
+        if (require('fs').existsSync(pkg)) return dir;
+      } catch {}
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return process.cwd();
+  }
+
+  const repoRoot = findRepoRoot(__dirname);
+  const previewStorageDir = path.resolve(repoRoot, 'storage', 'previews');
+  const altPreviewStorageDir = path.resolve(process.cwd(), 'storage', 'previews');
 
   // ─── Security Middleware ───────────────────────────────────────────────────
   app.use(helmet());
@@ -85,7 +103,13 @@ export function createApp() {
   });
 
   // ─── Deployment previews ───────────────────────────────────────────────────
+  // Serve previews from both the repository-root storage and the process
+  // cwd storage to cover different startup working directories.
+  logger.info({ previewStorageDir, altPreviewStorageDir }, 'Preview storage directories');
   app.use('/previews', express.static(previewStorageDir));
+  if (altPreviewStorageDir !== previewStorageDir) {
+    app.use('/previews', express.static(altPreviewStorageDir));
+  }
 
   // Prometheus scrape endpoint
   app.get('/metrics', async (_req: Request, res: Response) => {
