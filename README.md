@@ -110,10 +110,5 @@ npm test
 - Do not rely on container-local filesystem for persistent preview storage in production; use object storage (S3/Blob) and serve assets via CDN or API endpoints.
 - Store and manage secrets using a secure secret manager; avoid storing secrets in code or config files.
 
-## Contributing
 
-Follow the standard Git workflow: create a feature branch, run tests and linters, and open a pull request with a clear description and related tests.
 
-## License
-
-This repository does not include a license file. Add an appropriate `LICENSE` if open-source distribution is intended.
