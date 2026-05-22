@@ -111,16 +111,5 @@ If you want, we can add a GitHub Actions pipeline that builds images and deploys
 2. Follow the existing code and run tests locally.
 3. Open a PR describing changes and include test coverage when applicable.
 
-## License
 
-This repository does not specify a license file. Add one (e.g. MIT) if you intend to make this open-source.
-
----
-
-If you'd like, I can:
-
-- Add a `docs/deploy.md` with step-by-step deployment instructions for Cloud Run or Azure Container Apps.
-- Implement S3-backed preview storage and a GitHub Actions workflow that builds and pushes container images.
-
-Tell me which next step you want and I will implement it.
 
