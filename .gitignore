@@ -62,8 +62,24 @@ docker-volumes/
 
 # Grafana
 infra/grafana/data/
+
+# Preview artifacts (ignore previews written by workers)
+apps/api/storage/previews/
+apps/api/storage/previews/*.png
+apps/api/storage/previews/.gitkeep
+
+# Secret and key files
+*.pem
+*.key
+*.p12
+.envrc
+
+# Editor/user-specific
+.env.local
+.env.*.local
+
+Start-Dev.ps1
 apps/api/apps/api/storage/previews/cmpei58fn001lcgnewsf6pxxj.png
-apps/api/apps/api/storage/previews/cmpflfqhj001lsi4lzmk82k95.png
-apps/api/apps/api/storage/previews/cmpfles4g0001si4logcn97i8.png
 apps/api/apps/api/storage/previews/cmpeinrd60035cgne3n9zdjqq.png
-apps/api/apps/api/storage/previews/.gitkeep
+apps/api/apps/api/storage/previews/cmpfles4g0001si4logcn97i8.png
+apps/api/apps/api/storage/previews/cmpflfqhj001lsi4lzmk82k95.png
