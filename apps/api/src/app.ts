@@ -18,6 +18,18 @@ import authRoutes from './modules/auth/auth.routes';
 import projectsRoutes from './modules/projects/projects.routes';
 import deploymentsRoutes from './modules/deployments/deployments.routes';
 
+function parseCorsOrigins(value: string): string[] | '*' {
+  const trimmed = value.trim();
+  if (trimmed === '*') {
+    return '*';
+  }
+
+  return trimmed
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 export function createApp() {
   const app = express();
   // Resolve previews directory at repository root so it matches where
@@ -42,10 +54,11 @@ export function createApp() {
 
   // ─── Security Middleware ───────────────────────────────────────────────────
   app.use(helmet());
+  const corsOrigin = parseCorsOrigins(env.CORS_ORIGIN);
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
-      credentials: true,
+      origin: corsOrigin,
+      credentials: false,
       methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization'],
     })

@@ -6,10 +6,24 @@ import { websocketConnections } from '../metrics/registry';
 
 let io: IoServer | null = null;
 
+function parseCorsOrigins(value: string): string[] | '*' {
+  const trimmed = value.trim();
+  if (trimmed === '*') {
+    return '*';
+  }
+
+  return trimmed
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+}
+
 export function initIoServer(httpServer: HttpServer): IoServer {
+  const corsOrigin = parseCorsOrigins(env.CORS_ORIGIN);
+
   io = new IoServer(httpServer, {
     cors: {
-      origin: env.CORS_ORIGIN,
+      origin: corsOrigin,
       methods: ['GET', 'POST'],
     },
     transports: ['websocket', 'polling'],

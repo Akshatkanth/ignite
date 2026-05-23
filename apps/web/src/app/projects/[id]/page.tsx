@@ -197,7 +197,7 @@ export default function ProjectPage({ params }: { params: Promise<{ id: string }
                 <button onClick={async () => {
                   try {
                     setIsDeploying(true);
-                    await projectsApi.patch(id, { name: editForm.name, description: editForm.description || undefined, repoUrl: editForm.repoUrl, branch: editForm.branch });
+                    await projectsApi.update(id, { name: editForm.name, description: editForm.description || undefined, repoUrl: editForm.repoUrl, branch: editForm.branch });
                     await loadData();
                     setIsEditing(false);
                   } catch (e) {

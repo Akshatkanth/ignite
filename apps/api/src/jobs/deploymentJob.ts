@@ -419,7 +419,11 @@ export async function runDeploymentJob(data: DeploymentJobData): Promise<void> {
 
     // Capture a screenshot from the actual running container runtime.
     if (ctx.runtimeUrl) {
-      await captureDeploymentPreview(deploymentId, ctx.runtimeUrl);
+      try {
+        await captureDeploymentPreview(deploymentId, ctx.runtimeUrl);
+      } catch (captureErr) {
+        logger.warn({ deploymentId, err: captureErr }, 'Preview capture failed but deployment remains healthy');
+      }
     } else {
       logger.warn({ deploymentId }, 'Skipping preview capture because no runtime URL was available');
     }

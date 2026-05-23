@@ -35,8 +35,12 @@ async function main() {
   // ─── Initialize WebSocket server ─────────────────────────────────────────
   initIoServer(httpServer);
 
-  // ─── Start BullMQ worker ─────────────────────────────────────────────────
-  startDeploymentWorker();
+  // ─── Start BullMQ worker (local/default API runtime) ─────────────────────
+  if (env.ENABLE_DEPLOYMENT_WORKER) {
+    startDeploymentWorker();
+  } else {
+    logger.info('Deployment worker disabled for this process');
+  }
 
   // ─── Start listening ─────────────────────────────────────────────────────
   httpServer.listen(env.PORT, () => {
