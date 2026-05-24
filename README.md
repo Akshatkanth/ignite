@@ -1,4 +1,4 @@
-# Ignite (formerly DevFlow)
+# Ignite 
 
 This repository contains Ignite, a container-first deployment platform demonstrating a production-capable delivery pipeline, background workers, automated preview capture, and comprehensive observability. The project is delivered as a monorepo and is intended for local development, CI-driven workflows, and containerized cloud deployments.
 
