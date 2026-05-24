@@ -54,7 +54,7 @@ async function assertDeploymentAccess(deploymentId: string, userId: string): Pro
 
   if (!deployment) throw new NotFoundError('Deployment');
 
-  const isMember = deployment.project.members.some((m) => m.userId === userId);
+  const isMember = deployment.project.members.some((m: { userId: string }) => m.userId === userId);
   if (!isMember) throw new NotFoundError('Deployment');
 
   return mapDeployment(deployment);
@@ -171,7 +171,7 @@ export async function getDeploymentLogs(
   ]);
 
   return {
-    data: logs.map((l) => ({
+    data: logs.map((l: { id: string; deploymentId: string; message: string; level: string; timestamp: Date }) => ({
       id: l.id,
       deploymentId: l.deploymentId,
       message: l.message,

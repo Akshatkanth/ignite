@@ -152,7 +152,7 @@ export async function listProjects(userId: string): Promise<ProjectWithStats[]> 
     orderBy: { project: { updatedAt: 'desc' } },
   });
 
-  return memberships.map(({ project }) => {
+  return memberships.map(({ project }: { project: (typeof memberships)[number]['project'] }) => {
     const lastDep = project.deployments[0] ?? null;
     return {
       ...mapProject(project),
@@ -237,7 +237,7 @@ export async function getProjectDeployments(
   ]);
 
   return {
-    data: deployments.map((d) => mapDeployment(d)),
+    data: deployments.map((d: (typeof deployments)[number]) => mapDeployment(d)),
     total,
     page,
     limit,
