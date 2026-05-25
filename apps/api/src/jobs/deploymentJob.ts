@@ -12,6 +12,7 @@ import { DeploymentStatus, LogLevel } from '@devflow/shared';
 import { captureDeploymentPreview } from '../services/deploymentPreview';
 
 const execFileAsync = promisify(execFile);
+const USE_DOCKER_DEPLOYMENTS = process.env.USE_DOCKER_DEPLOYMENTS === 'true';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,16 +135,6 @@ async function runCommand(command: string, args: string[], cwd?: string): Promis
   }
 }
 
-async function getPublishedPort(containerId: string, internalPort: string): Promise<number> {
-  const { stdout } = await runCommand('docker', ['port', containerId, internalPort]);
-  const match = stdout.match(/:(\d+)\s*$/m) ?? stdout.match(/:(\d+)/);
-  if (!match) {
-    throw new Error(`Unable to determine published port from docker port output: ${stdout}`);
-  }
-
-  return Number(match[1]);
-}
-
 async function waitForHttpOk(targetUrl: string, attempts = 12): Promise<void> {
   let lastErr: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -164,12 +155,6 @@ async function waitForHttpOk(targetUrl: string, attempts = 12): Promise<void> {
 }
 
 async function cleanupRuntime(ctx: PipelineContext): Promise<void> {
-  if (ctx.containerId) {
-    await runCommand('docker', ['rm', '-f', ctx.containerId]).catch((err) => {
-      logger.warn({ deploymentId: ctx.deploymentId, err }, 'Failed to remove deployment container');
-    });
-  }
-
   if (ctx.workdir) {
     await fs.rm(ctx.workdir, { recursive: true, force: true }).catch((err) => {
       logger.warn({ deploymentId: ctx.deploymentId, err }, 'Failed to remove deployment workdir');
@@ -256,6 +241,32 @@ async function stepBuild(ctx: PipelineContext, framework: string): Promise<void>
   const { deploymentId, workdir } = ctx;
   await updateStatus(deploymentId, DeploymentStatus.BUILDING);
 
+  if (!USE_DOCKER_DEPLOYMENTS) {
+    await emitLog(deploymentId, `Building deployment artifact in simulation mode...`);
+    await delay(800);
+
+    if (framework === 'static') {
+      await emitLog(deploymentId, `Step 1/3 : Collect static assets`);
+      await delay(400);
+      await emitLog(deploymentId, `Step 2/3 : Optimize public files`);
+      await delay(500);
+      await emitLog(deploymentId, `Step 3/3 : Package static deployment`);
+      await delay(300);
+    } else {
+      await emitLog(deploymentId, `Step 1/4 : Resolve package scripts`);
+      await delay(350);
+      await emitLog(deploymentId, `Step 2/4 : Install dependencies`);
+      await delay(500);
+      await emitLog(deploymentId, `Step 3/4 : Run production build`);
+      await delay(650);
+      await emitLog(deploymentId, `Step 4/4 : Package Node.js deployment`);
+      await delay(300);
+    }
+
+    await emitLog(deploymentId, `✓ Deployment artifact prepared`, LogLevel.SUCCESS);
+    return;
+  }
+
   await emitLog(deploymentId, `Building Docker image...`);
   await delay(600);
 
@@ -302,6 +313,24 @@ async function stepBuild(ctx: PipelineContext, framework: string): Promise<void>
 async function stepHealthCheck(ctx: PipelineContext): Promise<void> {
   const { deploymentId, imageName } = ctx;
   await updateStatus(deploymentId, DeploymentStatus.HEALTH_CHECK);
+
+  if (!USE_DOCKER_DEPLOYMENTS) {
+    await emitLog(deploymentId, `Running health checks in simulation mode...`);
+    await delay(600);
+    await emitLog(deploymentId, `Health probe 1/3: simulated readiness check`);
+    await delay(300);
+    await emitLog(deploymentId, `  → ready`);
+    await delay(300);
+    await emitLog(deploymentId, `Health probe 2/3: simulated dependency check`);
+    await delay(300);
+    await emitLog(deploymentId, `  → healthy`);
+    await delay(300);
+    await emitLog(deploymentId, `Health probe 3/3: simulated endpoint check`);
+    await delay(300);
+    await emitLog(deploymentId, `  → ok`);
+    await emitLog(deploymentId, `✓ All health checks passed`, LogLevel.SUCCESS);
+    return;
+  }
 
   await emitLog(deploymentId, `Running health checks...`);
   await delay(600);
