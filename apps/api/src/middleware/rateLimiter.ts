@@ -9,6 +9,7 @@ export const generalLimiter = rateLimit({
   max: env.RATE_LIMIT_MAX,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: {
     success: false,
     error: 'Too many requests, please try again later',
@@ -25,6 +26,7 @@ export const authLimiter = rateLimit({
   max: 10,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: {
     success: false,
     error: 'Too many authentication attempts, please try again in an hour',
@@ -40,6 +42,7 @@ export const deployLimiter = rateLimit({
   max: 20,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
   message: {
     success: false,
     error: 'Too many deployment requests, please slow down',

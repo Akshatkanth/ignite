@@ -55,14 +55,15 @@ export function createApp() {
   // ─── Security Middleware ───────────────────────────────────────────────────
   app.use(helmet());
   const corsOrigin = parseCorsOrigins(env.CORS_ORIGIN);
-  app.use(
-    cors({
-      origin: corsOrigin,
-      credentials: false,
-      methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
-    })
-  );
+  const corsOptions = {
+    origin: corsOrigin,
+    credentials: false,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  };
+
+  app.use(cors(corsOptions));
+  app.options('*', cors(corsOptions));
 
   // ─── Request Parsing ───────────────────────────────────────────────────────
   app.use(express.json({ limit: '1mb' }));
