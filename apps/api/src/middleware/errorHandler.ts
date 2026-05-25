@@ -60,7 +60,7 @@ export function errorHandler(
 
   // Prisma unique constraint violation
   if (err.constructor.name === 'PrismaClientKnownRequestError') {
-    const prismaErr = err as { code?: string; meta?: { target?: string[] } };
+    const prismaErr = err as { code?: string; meta?: { target?: string[]; modelName?: string } };
     if (prismaErr.code === 'P2002') {
       const field = prismaErr.meta?.target?.[0] ?? 'field';
       res.status(409).json({
@@ -70,6 +70,36 @@ export function errorHandler(
       });
       return;
     }
+
+    // Table/model not found: database schema likely not pushed yet.
+    if (prismaErr.code === 'P2021') {
+      const modelName = prismaErr.meta?.modelName ?? 'required tables';
+      res.status(500).json({
+        success: false,
+        error: `Database schema is not initialized (${modelName}). Please apply Prisma schema and retry.`,
+        code: 'DB_SCHEMA_NOT_INITIALIZED',
+      });
+      return;
+    }
+
+    if (prismaErr.code === 'P1001') {
+      res.status(503).json({
+        success: false,
+        error: 'Database is unreachable. Please try again shortly.',
+        code: 'DB_UNREACHABLE',
+      });
+      return;
+    }
+  }
+
+  // Prisma initialization errors usually indicate connectivity/config issues.
+  if (err.constructor.name === 'PrismaClientInitializationError') {
+    res.status(503).json({
+      success: false,
+      error: 'Database initialization failed. Check database configuration and connectivity.',
+      code: 'DB_INIT_FAILED',
+    });
+    return;
   }
 
   // Unknown errors — log full stack in development

@@ -4,7 +4,7 @@ services:
     env: node
     rootDir: .
     buildCommand: npm install --include=dev && npm run db:push --workspace @devflow/api && npm run build --workspace @devflow/shared && npm run build --workspace @devflow/api
-    startCommand: npm run start --workspace @devflow/api
+    startCommand: npm run db:push --workspace @devflow/api && npm run start --workspace @devflow/api
     autoDeploy: true
     envVars:
       - key: NODE_ENV
