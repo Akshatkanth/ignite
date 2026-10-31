@@ -8,6 +8,7 @@ This repository contains Ignite, a container-first deployment platform demonstra
 
 Ignite implements an opinionated pipeline for deploying applications from Git repositories. It focuses on reproducibility, observability, and operational practices: deterministic build steps, health checks, automated runtime preview capture, real-time logs, metrics collection, and worker-based orchestration.
 
+
 ## Features
 
 - Project-driven deployments with history and status
